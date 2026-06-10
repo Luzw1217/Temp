@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReAct 演示 — Thought → Action → Observation</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+            background: #0f1419;
+            color: #e6e8eb;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
+        }
+
+        .subtitle {
+            color: #7a8fa6;
+            font-size: 0.9rem;
+            margin-bottom: 32px;
+        }
+
+        .question-card {
+            background: #1a2432;
+            border: 1px solid #2d3f55;
+            border-radius: 14px;
+            padding: 24px 32px;
+            max-width: 780px;
+            width: 100%;
+            margin-bottom: 28px;
+        }
+
+        .question-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #3b82f6;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .question-text {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: #d1d8e0;
+        }
+
+        #steps-container {
+            max-width: 780px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .step-card {
+            background: #1a2432;
+            border: 1px solid #2d3f55;
+            border-radius: 14px;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(16px);
+            animation: fadeInUp 0.4s ease forwards;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border-bottom: 1px solid #2d3f55;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .step-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .step-body {
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+
+        .row-label {
+            flex-shrink: 0;
+            width: 90px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding-top: 2px;
+        }
+
+        .row-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            flex: 1;
+        }
+
+        .step-card.thought { border-left: 4px solid #f59e0b; }
+        .step-card.thought .step-header { background: rgba(245, 158, 11, 0.08); color: #f59e0b; }
+        .step-card.thought .row-label { color: #f59e0b; }
+
+        .step-card.action { border-left: 4px solid #3b82f6; }
+        .step-card.action .step-header { background: rgba(59, 130, 246, 0.08); color: #3b82f6; }
+        .step-card.action .row-label { color: #3b82f6; }
+
+        .step-card.observation { border-left: 4px solid #10b981; }
+        .step-card.observation .step-header { background: rgba(16, 185, 129, 0.08); color: #10b981; }
+        .step-card.observation .row-label { color: #10b981; }
+
+        .final-card {
+            background: linear-gradient(135deg, #0f2a1d 0%, #112b3a 100%);
+            border: 1px solid #10b981;
+            border-left: 5px solid #10b981;
+            border-radius: 14px;
+            padding: 24px 28px;
+            max-width: 780px;
+            width: 100%;
+            opacity: 0;
+            animation: fadeInUp 0.5s ease 0.2s forwards;
+        }
+
+        .final-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #10b981;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .final-answer {
+            font-size: 1.2rem;
+            color: #fff;
+            line-height: 1.7;
+        }
+
+        .controls {
+            margin-top: 32px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 28px;
+            border-radius: 8px;
+            border: 1px solid #2d3f55;
+            background: #1a2432;
+            color: #e6e8eb;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .btn:hover {
+            background: #243044;
+            border-color: #3b82f6;
+        }
+
+        .btn.primary {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: #fff;
+        }
+
+        .btn.primary:hover {
+            background: #2563eb;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            color: #7a8fa6;
+            font-size: 0.85rem;
+            margin-top: 14px;
+            min-height: 22px;
+        }
+
+        .status.active { color: #f59e0b; }
+        .status.success { color: #10b981; }
+
+        .legend {
+            display: flex;
+            gap: 24px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: #7a8fa6;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .legend-dot.thought { background: #f59e0b; }
+        .legend-dot.action  { background: #3b82f6; }
+        .legend-dot.obs     { background: #10b981; }
+    </style>
+</head>
+<body>
+
+    <h1>ReAct 循环演示</h1>
+    <p class="subtitle">Thought → Action → Observation → ... → Final Answer</p>
+
+    <div class="question-card">
+        <div class="question-label">测试问题</div>
+        <div class="question-text">
+            今天是 2026-06-09，<strong>3 天后是几号？</strong>
+            那<strong>距离 2026-12-31 还有多少天？</strong>
+        </div>
+    </div>
+
+    <div id="steps-container"></div>
+    <div id="final-container"></div>
+
+    <div class="controls">
+        <button class="btn primary" id="startBtn" onclick="startReact()">▶ 开始 ReAct 推理</button>
+        <button class="btn" onclick="resetDemo()">↺ 重置</button>
+    </div>
+
+    <div class="status" id="status">点击按钮启动推理</div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-dot thought"></div>
+            <span>Thought — 分析当前状态</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot action"></div>
+            <span>Action — 调用工具</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot obs"></div>
+            <span>Observation — 获取结果</span>
+        </div>
+    </div>
+
+    <script>
+        async function startReact() {
+            const startBtn = document.getElementById("startBtn");
+            const status = document.getElementById("status");
+            
+            resetDemo();
+            startBtn.disabled = true;
+            status.textContent = "推理进行中...";
+            status.className = "status active";
+
+            try {
+                const response = await fetch("/api/react", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({}),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    await renderSteps(data.steps);
+                    renderFinal(data.final_answer);
+                    status.textContent = "推理完成 ✓";
+                    status.className = "status success";
+                } else {
+                    status.textContent = "错误: " + result.error;
+                    status.className = "status";
+                }
+            } catch (error) {
+                status.textContent = "连接出错，请检查后端是否正常运行";
+                status.className = "status";
+            } finally {
+                startBtn.disabled = false;
+            }
+        }
+
+        async function renderSteps(steps) {
+            const container = document.getElementById("steps-container");
+            
+            for (let i = 0; i < steps.length; i++) {
+                const step = steps[i];
+                const index = step.step;
+
+                const thoughtCard = createCard(index + ".a", "thought", `
+                    <div class="row">
+                        <div class="row-label">Thought</div>
+                        <div class="row-content">${escapeHtml(step.thought)}</div>
+                    </div>
+                `);
+
+                const actionCard = createCard(index + ".b", "action", `
+                    <div class="row">
+                        <div class="row-label">Action</div>
+                        <div class="row-content">
+                            <strong>${step.action_type}</strong>(${step.action_input})
+                        </div>
+                    </div>
+                `);
+
+                const obsCard = createCard(index + ".c", "observation", `
+                    <div class="row">
+                        <div class="row-label">Observation</div>
+                        <div class="row-content">
+                            <strong style="color:#10b981">${escapeHtml(step.observation)}</strong>
+                        </div>
+                    </div>
+                `);
+
+                container.appendChild(thoughtCard);
+                container.appendChild(actionCard);
+                container.appendChild(obsCard);
+
+                obsCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                await sleep(500);
+            }
+        }
+
+        function renderFinal(answer) {
+            const container = document.getElementById("final-container");
+            container.innerHTML = `
+                <div class="final-card">
+                    <div class="final-label">✓ Final Answer</div>
+                    <div class="final-answer">${escapeHtml(answer)}</div>
+                </div>
+            `;
+            container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+
+        function createCard(label, type, bodyHTML) {
+            const card = document.createElement("div");
+            card.className = `step-card ${type}`;
+            const color = type === "thought" ? "#f59e0b" : type === "action" ? "#3b82f6" : "#10b981";
+            card.innerHTML = `
+                <div class="step-header">
+                    <span class="step-badge" style="background:${color};color:#fff">${label}</span>
+                    Step ${label}
+                </div>
+                <div class="step-body">${bodyHTML}</div>
+            `;
+            return card;
+        }
+
+        function resetDemo() {
+            document.getElementById("steps-container").innerHTML = "";
+            document.getElementById("final-container").innerHTML = "";
+            document.getElementById("status").textContent = "已重置，点击按钮重新开始";
+            document.getElementById("status").className = "status";
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+
+</body>
+</html>
